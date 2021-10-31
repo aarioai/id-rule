@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-
 // 计算规则参考“中国国家标准化管理委员会”官方文档：http://www.gb688.cn/bzgk/gb/newGbInfo?hcno=24691C25985C1073D3A7C85629378AC0
 
 //代码字符对应的值
