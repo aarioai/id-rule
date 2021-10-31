@@ -3,7 +3,15 @@
 // 福建恒跃柳工机械销售有限公司: 91350100M0001TGQXM 计算出的校验位是 1 和 M 不符
 // 厦门云上晴空航空科技有限公司:91350211M0000XUF46 计算出的校验位是 R 和 6 不符
 // 厦门黑脉网络科技有限公司91350203M0001FUE2P 计算出的校验位是 J 和 P 不符
-package idcheck
+package id_rule
+
+import (
+	"math"
+	"regexp"
+	"strings"
+)
+
+
 
 import (
 	"math"

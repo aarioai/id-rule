@@ -1,4 +1,4 @@
-package idcheck
+package id_rule
 
 import (
 	"math"
