@@ -5,30 +5,30 @@ import (
 	"encoding/hex"
 )
 
-// 数据脱敏隐藏局部，需要多传一个原值的md5用于校验
+const (
+	phoneLength = 11
+)
 
-// 手机号脱敏
+// DesensitizeChinesePhoneNumber 手机号脱敏
+// 返回脱敏后的手机号、原值的MD5和校验结果
 func DesensitizeChinesePhoneNumber(num string) (desensitized string, md5str string, ok bool) {
-	l := len(num)
-	if l < 11 {
-		return
+	if len(num) != phoneLength {
+		return "", "", false
 	}
 	hash := md5.Sum([]byte(num))
 	md5str = hex.EncodeToString(hash[:])
-	desensitized = num[0:3] + "****" + num[l-4:]
-	ok = true
-	return
+	desensitized = num[:3] + "****" + num[7:]
+	return desensitized, md5str, true
 }
 
-// 中国身份证号码脱敏
+// DesensitizeChineseIdNum 中国身份证号码脱敏
+// 返回脱敏后的身份证号、原值的MD5和校验结果
 func DesensitizeChineseIdNum(num string) (desensitized string, md5str string, ok bool) {
-	l := len(num)
-	if l < 18 {
-		return
+	if len(num) != idLength {
+		return "", "", false
 	}
 	hash := md5.Sum([]byte(num))
 	md5str = hex.EncodeToString(hash[:])
-	desensitized = num[0:3] + "***"+num[6:14]+"***" + num[l-1:]
-	ok = true
-	return
+	desensitized = num[:3] + "***" + num[6:14] + "***" + num[17:]
+	return desensitized, md5str, true
 }

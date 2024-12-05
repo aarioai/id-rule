@@ -1,13 +1,22 @@
 package id_rule
 
 import (
-	"math"
 	"strconv"
 	"time"
 )
 
 // The Rule of Chinese Citizen Identification Number 中国身份证ID校验
 // 计算规则参考“中国国家标准化管理委员会”官方文档：http://www.gb688.cn/bzgk/gb/newGbInfo?hcno=080D6FBF2BB468F9007657F26D60013E
+
+const (
+	idLength      = 18
+	districtLen   = 6
+	birthDateLen  = 8
+	sequenceLen   = 3
+	checksumIndex = 17
+	birthStartPos = 6
+	birthEndPos   = 14
+)
 
 type ChineseCitizenId struct {
 	valid      bool
@@ -16,7 +25,12 @@ type ChineseCitizenId struct {
 	sex        Sex
 }
 
+// NewChineseCitizenId 创建新的身份证验证实例
+// 如果输入的身份证号码格式不正确，将返回一个无效的实例
 func NewChineseCitizenId(num string) ChineseCitizenId {
+	if len(num) != idLength {
+		return ChineseCitizenId{valid: false}
+	}
 	d, b, s, v := parseChineseCitizenId(num)
 	return ChineseCitizenId{
 		valid:      v,
@@ -25,6 +39,7 @@ func NewChineseCitizenId(num string) ChineseCitizenId {
 		sex:        s,
 	}
 }
+
 func (n ChineseCitizenId) Valid() bool {
 	return n.valid
 }
@@ -38,85 +53,58 @@ func (n ChineseCitizenId) Sex() Sex {
 	return n.sex
 }
 
-// 检查是否符合身份证国标
+// isChineseCitizenIdValid 优化后的身份证校验算法
 func isChineseCitizenIdValid(num string) bool {
-	//a1与对应的校验码对照表，其中key表示a1，value表示校验码，value中的10表示校验码X
-	var a1Map = map[int]int{
-		0:  1,
-		1:  0,
-		2:  10,
-		3:  9,
-		4:  8,
-		5:  7,
-		6:  6,
-		7:  5,
-		8:  4,
-		9:  3,
-		10: 2,
-	}
+	// 预计算权重因子，避免重复计算
+	var weights = [17]int{7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2}
+	var validChecksum = [11]string{"1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"}
 
 	var sum int
-	var signChar = ""
-	for index, c := range num {
-		var i = 18 - index
-		if i != 1 {
-			v, err := strconv.Atoi(string(c))
-			if err != nil {
-				return false
-			}
-			//计算加权因子
-			var weight = int(math.Pow(2, float64(i-1))) % 11
-			sum += v * weight
-
-		} else {
-			signChar = string(c)
+	for i := 0; i < len(weights); i++ {
+		digit, err := strconv.Atoi(string(num[i]))
+		if err != nil {
+			return false
 		}
+		sum += digit * weights[i]
 	}
-	var a1 = a1Map[sum%11]
-	var a1Str string
-	if a1 == 10 {
-		a1Str = "X"
-	} else {
-		a1Str = strconv.Itoa(a1)
-	}
-	return a1Str == signChar
+
+	checksum := validChecksum[sum%11]
+	return string(num[checksumIndex]) == checksum
 }
 
-// 解析中国身份证号码，原籍（省份、城市）、生日、性别, 是否正确（通过身份证自带简易校验）
 func parseChineseCitizenId(num string) (district uint64, birthDate string, sex Sex, valid bool) {
-	var (
-		x   int
-		err error
-	)
-
-	birthDate = num[6:10] + "-" + num[10:12] + "-" + num[12:14]
-	_, err = time.Parse("2006-01-02", birthDate)
-	if err != nil {
-		return
+	// 首先验证长度
+	if len(num) != idLength {
+		return 0, "", UnknownSex, false
 	}
 
-	veri := num[14:17]
-	x, err = strconv.Atoi(veri)
-	if err != nil {
-		return
+	// 验证出生日期
+	birthDate = num[birthStartPos:birthStartPos+4] + "-" +
+		num[birthStartPos+4:birthStartPos+6] + "-" +
+		num[birthStartPos+6:birthEndPos]
+
+	if t, err := time.Parse("2006-01-02", birthDate); err != nil || t.After(time.Now()) {
+		return 0, "", UnknownSex, false
 	}
 
-	sex = UnknownSex
-	if x%2 == 0 {
-		sex = Female
+	// 验证地区码
+	district, err := strconv.ParseUint(num[0:districtLen], 10, 64)
+	if err != nil {
+		return 0, "", UnknownSex, false
+	}
+
+	// 解析性别
+	if sequence, err := strconv.Atoi(num[14:17]); err == nil {
+		if sequence%2 == 0 {
+			sex = Female
+		} else {
+			sex = Male
+		}
 	} else {
-		sex = Male
-	}
-	district, err = strconv.ParseUint(num[0:6], 10, 64)
-	if err != nil {
-		return
+		return 0, "", UnknownSex, false
 	}
 
+	// 验证校验码
 	valid = isChineseCitizenIdValid(num)
-	if !valid {
-		return
-	}
-
-	valid = true
 	return
 }
